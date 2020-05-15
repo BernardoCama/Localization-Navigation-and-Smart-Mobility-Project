@@ -1,2 +1,2 @@
-# Local
-Localization, Navigation and Smart Mobility Project
+# Localization, Navigation and Smart Mobility Project
+
