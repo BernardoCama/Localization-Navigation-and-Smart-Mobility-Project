@@ -5,6 +5,7 @@ set(0,'DefaultLineLineWidth',2);
 set(0,'DefaultTextInterpreter','latex')
 set(0,'DefaultAxesFontSize',16)
 
+
 %% scenario settings (4000x4000 m)
 parameters.xmin = -2000; parameters.ymin = -2000;
 parameters.xmax =  2000; parameters.ymax =  2000;
@@ -24,11 +25,7 @@ parameters.sigmaAOA = deg2rad(10); %deg
 x = linspace(parameters.xmin,parameters.xmax,1000);
 y = linspace(parameters.ymin,parameters.ymax,1000);
 
-%% build covariance matrix
-% TYPE='TOA';
-% [R] = BuildCovarianceMatrix(parameters,TYPE);
-
-%% load measurements
+%% load measurements Task 1_a
 
 load('Task1a_rhoUEAP.mat')
 
@@ -130,7 +127,7 @@ for a = 1:parameters.numberOfAP
 
 end
 
-
+%% Plot AP
 fig = figure(); hold on
 
 plot( APhat(:,1) , APhat(:,2) , '^','MarkerSize',10,'MarkerEdgeColor',[147,0,0]./255,'MarkerFaceColor',[147,0,0]./255, 'DisplayName','AP')
@@ -149,6 +146,24 @@ axis equal
 
 title(['Estimated Positions of AP',' , $\sigma $ = ',num2str(parameters.sigmaTOA),' m ',' , $\sigma $ = ',num2str(rad2deg(parameters.sigmaAOA)),' deg '],'Interpreter','Latex')
 
+pause
 
+
+%% load measurements Task 1_b
+TYPE = 'TOA';
+
+load('Task1b_rhoUEAP.mat')
+
+rho=rhoUEAP;
+
+UE = [-500, 800 ];
+
+
+%% calculate R
+[ h_u ] = createVectorOfObservations(parameters,UE,APhat,TYPE);
+
+n = rhoUEAP - h_u;
+
+R = diag(round(var(n)))
 
 
