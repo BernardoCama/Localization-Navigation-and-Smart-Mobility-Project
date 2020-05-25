@@ -295,42 +295,33 @@ end
 
 
 
-%% create prior uniform distribution
-parameters.numberOfParticles = 1000;
-
-PR = generatePriorOfParticles(parameters);
-
-figure,hold on
-plot(PR.samples(1,:),PR.samples(2,:),'.r')
-plot( APhat(:,1) , APhat(:,2) , '^','MarkerSize',10,'MarkerEdgeColor',[147,0,0]./255,'MarkerFaceColor',[147,0,0]./255)
-xlabel('[m]'), ylabel('[m]');
-xlim([parameters.xmin parameters.xmax])
-ylim([parameters.ymin parameters.ymax])
-axis equal
-grid on
-
-
-
-
 
 %% tracking
 uHat = zeros(parameters.simulationTime,4);
 
-x_mean = [0,0,mean_tot_velocity(1), mean_tot_velocity(2)]';
+% mean of Prior, first measurement
+% x_mean = [0,0,mean_tot_velocity(1), mean_tot_velocity(2)]';
+parameters.NiterMax = 100;
+[u_0,numberOfPerformedIterations] = iterativeNLS(parameters,APhat,TYPE,R,squeeze(rho(1, 1, :))');
+  x_mean = [u_0(1),u_0(2),mean_tot_velocity(1), mean_tot_velocity(2)]';
 
 % covariance of Prior
 P = zeros(4,4);
 
 % motion model M2 x_t = F * x_t-1 + L * wv_t-1
+% ux_t = ux_t-1 * 1 + ux_t-1 * 0 + vx_t-1 * T + vy_t-1 * 0   +  wvx_t-1 * T + wvx_t-1 * 0
+% uy_t = ux_t-1 * 0 + ux_t-1 * 1 + vx_t-1 * 0 + vy_t-1 * T   +  wvx_t-1 * 0 + wvx_t-1 * T
+% vx_t = ux_t-1 * 0 + ux_t-1 * 0 + vx_t-1 * 1 + vy_t-1 * 0   +  wvx_t-1 * 0 + wvx_t-1 * 0
+% vy_t = ux_t-1 * 0 + ux_t-1 * 0 + vx_t-1 * 0 + vy_t-1 * 1   +  wvx_t-1 * 0 + wvx_t-1 * 0
 T = parameters.samplingTime;
-F = [1 0 T 0; 0 1 0 T; 1 0 0 0; 0 1 0 0];
+F = [1 0 T 0; 0 1 0 T; 0 0 1 0; 0 0 0 1];
 L = [T 0; 0 T; 0 0; 0 0];
 Q = sqrt(sum(sigma_tot_velocity.^2)) .* (L * L'); % rivedere
 
 
 fig = figure(100); hold on
 
-% tracking or the first trajectory
+% tracking the first trajectory
 for time=1:parameters.simulationTime
     
     
@@ -393,7 +384,7 @@ end
 
 %% COMPARISON WITH PARTICLE FILTER
 
-%{
+
 
 %% Tracking by Particle Filter
 parameters.numberOfParticles = 1000;
@@ -520,7 +511,7 @@ for idx = 1:counter-1
     pause(1)
 
 end
-%}
+
     
 
 
