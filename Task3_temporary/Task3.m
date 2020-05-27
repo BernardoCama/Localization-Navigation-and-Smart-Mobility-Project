@@ -127,6 +127,8 @@ for a = 1:parameters.numberOfAP
 
 end
 
+APhat = circshift(APhat,4);
+
 %% Plot AP
 % fig = figure(); hold on
 % 
@@ -149,12 +151,15 @@ end
 % pause
 
 
+
+
+
 %% load measurements Task 1_b
 TYPE = 'TOA';
 
 load('Task1b_rhoUEAP.mat')
 
-UE = [-500, 800 ];
+UE = [500, -800 ];
 
 
 %% calculate R
@@ -162,7 +167,7 @@ UE = [-500, 800 ];
 
 n = rhoUEAP - h_u;
 
-R = diag(round(var(n)));
+R = diag(round(var(n)))
 
 
 
@@ -189,8 +194,8 @@ for i = 1:parameters.numberTrajectory
     
 end
 
-% mean over all trajectories of velocity vector
-v_mean = [mean(x(:,:,3),1); mean(x(:,:,4),1)];
+% extract velocity
+v = x(:,:,3:4);
 
 %% plot UE trajectories
 % figure,hold on
@@ -218,40 +223,47 @@ v_mean = [mean(x(:,:,3),1); mean(x(:,:,4),1)];
 % end
 
 
-%% plot statistics
-% figure,hold on
-% 
-% plot([0:parameters.samplingTime:parameters.simulationTime-1],v_mean(1,:));
-% 
-% plot([0:parameters.samplingTime:parameters.simulationTime-1],v_mean(2,:));
-% 
-% title('Velocity');xlabel('time');ylabel('m/s')
-% 
-acceleration = diff(v_mean(1:2,:),1,2);
-% 
-% figure,hold on
-% 
-% plot([0:parameters.samplingTime:parameters.simulationTime-2],acceleration(1,:));
-% 
-% plot([0:parameters.samplingTime:parameters.simulationTime-2],acceleration(2,:));
-% 
-% title('Acceleration');xlabel('time');ylabel('m/s2')
+
+%% plot statistics of first trajectory
+figure,hold on
+
+plot([0:parameters.samplingTime:parameters.simulationTime-1],v(1,:,1));
+
+plot([0:parameters.samplingTime:parameters.simulationTime-1],v(1,:,2));
+
+title('Velocity');xlabel('time');ylabel('m/s')
+
+acceleration = squeeze(diff(v(:,:,1:2),1,2));
+
+figure,hold on
+
+plot([0:parameters.samplingTime:parameters.simulationTime-2],acceleration(1,:,2));
+
+plot([0:parameters.samplingTime:parameters.simulationTime-2],acceleration(1,:,2));
+
+title('Acceleration');xlabel('time');ylabel('m/s2')
 
 
-% since, as we can see in the graphs, the values of velocities and
-% accelerations are misleading after the 100_th sample (due to constraint
-% of delimited space), we calculate the statistics on samples up to 100.
 
-sigma_tot_velocity = std(v_mean(:,1:100),0,2);
-mean_tot_velocity = mean(v_mean(:,1:100),2)
+sigma_velocity = squeeze(std(v(1,:,:),0,2))
+mean_velocity = squeeze(mean(v(1,:,:),2))
 
-sigma_tot_acceleration = std(acceleration(:,1:100),0,2);
-mean_tot_acceleration = mean(acceleration(:,1:100),2);
+sigma_acceleration = squeeze(std(acceleration(1,:,:),0,2))
+mean_acceleration = squeeze(mean(acceleration(1,:,:),2))
+
+
+
+%% motion model statistics
+sigma_tot_velocity = mean(squeeze(std(v(:,:,:),0,2)),1)
+
+sigma_tot_acceleration = mean(squeeze(std(acceleration(:,:,:),0,2)),1)
+mean_tot_acceleration = mean(squeeze(mean(acceleration(:,:,:),2)),1)
 
 %{
+RIVEDERE
 we can clearly see that is Motion Model M2 because of:
 - zero sigma_tot_velocity
-- constant mean_tot_velocity (about v_x = 0.4, v_y = 0.6)
+- constant mean_tot_velocity (about v_x = 1.387, v_y = 5.635)
 - zero sigma_tot_acceleration
 - zero mean_tot_acceleration
 
@@ -294,16 +306,17 @@ end
 
 
 
-
-
 %% tracking
 uHat = zeros(parameters.simulationTime,4);
 
+% which trajectory estimate
+trajectory = 1;
+
 % mean of Prior, first measurement
-% x_mean = [0,0,mean_tot_velocity(1), mean_tot_velocity(2)]';
 parameters.NiterMax = 100;
-[u_0,numberOfPerformedIterations] = iterativeNLS(parameters,APhat,TYPE,R,squeeze(rho(1, 1, :))');
-  x_mean = [u_0(1),u_0(2),mean_tot_velocity(1), mean_tot_velocity(2)]';
+[u_0,numberOfPerformedIterations] = iterativeNLS(parameters,APhat,TYPE,R,squeeze(rho(trajectory, 1, :))');
+x_mean = [u_0(numberOfPerformedIterations,1),u_0(numberOfPerformedIterations, 2),mean(x(trajectory,:,3),2), mean(x(trajectory,:,4),2)]';
+
 
 % covariance of Prior
 P = zeros(4,4);
@@ -313,13 +326,17 @@ P = zeros(4,4);
 % uy_t = ux_t-1 * 0 + ux_t-1 * 1 + vx_t-1 * 0 + vy_t-1 * T   +  wvx_t-1 * 0 + wvx_t-1 * T
 % vx_t = ux_t-1 * 0 + ux_t-1 * 0 + vx_t-1 * 1 + vy_t-1 * 0   +  wvx_t-1 * 0 + wvx_t-1 * 0
 % vy_t = ux_t-1 * 0 + ux_t-1 * 0 + vx_t-1 * 0 + vy_t-1 * 1   +  wvx_t-1 * 0 + wvx_t-1 * 0
+
 T = parameters.samplingTime;
+
 F = [1 0 T 0; 0 1 0 T; 0 0 1 0; 0 0 0 1];
+
 L = [T 0; 0 T; 0 0; 0 0];
-Q = sqrt(sum(sigma_tot_velocity.^2)) .* (L * L'); % rivedere
+
+Q = 0.* (L * L'); 
 
 
-fig = figure(100); hold on
+%fig = figure(100); hold on
 
 % tracking the first trajectory
 for time=1:parameters.simulationTime
@@ -327,13 +344,16 @@ for time=1:parameters.simulationTime
     
     % Update mean and covariance
     [H] = createMatrixH(parameters,x_mean(1:2)',APhat,TYPE);
+    
     temp = ones(size(H, 1),1);
+    
     H = [H temp temp] ;
     
     % Kalman Gain
     G = P * H' * inv(H * P * H' + R);
     
-    x_mean = x_mean + G * ( squeeze(rho(1, time, :)) - H * x_mean);
+    x_mean = x_mean + G * ( squeeze(rho(trajectory, time, :)) - H * x_mean);
+    
     P = P - G * H * P;
     
     uHat(time,:) = x_mean;
@@ -341,63 +361,99 @@ for time=1:parameters.simulationTime
 
     % Prediction
     x_mean = F * x_mean;
+    
     P = F * P * F' + Q;
     
     
     
-    hold off
-    
-    plot( x(1,1:time,1) , x(1,1:time,2) , '-o','MarkerSize',10,'MarkerEdgeColor',[147,0,0]./255,'MarkerFaceColor',[147,0,0]./255)
-    
-    hold on
-    
-    plot(uHat(1:time,1),uHat(1:time,2),'-s','MarkerEdgeColor',[0, 0, 160]./255,'MarkerFaceColor',[0, 0, 160]./255)
-    
-    hold on
-    
-    plot( APhat(:,1) , APhat(:,2) , '^','MarkerSize',10,'MarkerEdgeColor',[147,0,0]./255,'MarkerFaceColor',[147,0,0]./255)
+%     hold off
+%     
+%     plot( x(trajectory,1:time,1) , x(trajectory,1:time,2) , '-o','MarkerSize',10,'MarkerEdgeColor',[147,0,0]./255,'MarkerFaceColor',[147,0,0]./255)
+%     
+%     hold on
+%     
+%     plot(uHat(1:time,1),uHat(1:time,2),'-s','MarkerEdgeColor',[0, 0, 160]./255,'MarkerFaceColor',[0, 0, 160]./255)
+%     
+%     hold on
+%     
+%     plot( APhat(:,1) , APhat(:,2) , '^','MarkerSize',10,'MarkerEdgeColor',[147,0,0]./255,'MarkerFaceColor',[147,0,0]./255)
+% 
+%     legend('UE','uHat','AP')  
 
-    legend('UE','uHat','AP')  
-    xlabel('[m]'), ylabel('[m]');
-    xlim([parameters.xmin parameters.xmax])
-    ylim([parameters.ymin parameters.ymax])
-    axis equal
-    grid on
-    pause(1)
+%     xlabel('[m]'), ylabel('[m]');
 
+%     xlim([min(x(trajectory,1,1),uHat(1,1))-100  max(x(trajectory,time,1),uHat(time,1))+100])
 
+%     ylim([min(x(trajectory,1,2),uHat(1,2))-100  max(x(trajectory,time,2),uHat(time,2))+100])
 
+%     grid on
+
+%     pause(1)
 
 
 end
 
 
-%% distance error
-% DeltaPosition = UE(:,1:2)-uHat(:,1:2) ;
-% err = sqrt( sum ( DeltaPosition.^2,2));
-% figure
-% plot(err)
+%% plot result
+figure,hold on
 
+plot( APhat(:,1) , APhat(:,2) , '^','MarkerSize',10,'MarkerEdgeColor',[147,0,0]./255,'MarkerFaceColor',[147,0,0]./255)
+
+plot( x(trajectory,:,1) , x(trajectory,:,2) , '-^b')
+
+plot( uHat(:,1) , uHat(:,2) , '-*r')
+
+legend('AP','UE','uHat') 
+
+xlabel('[m]'), ylabel('[m]');
+
+xlim([parameters.xmin parameters.xmax])
+
+ylim([parameters.ymin parameters.ymax])
+
+axis equal
+
+grid on
+
+pause()
+
+
+%% distance error
+DeltaPosition = squeeze(x(1,:,1:2))-uHat(:,1:2) ;
+
+err = sqrt( sum ( DeltaPosition.^2,2));
+
+figure
+
+plot(err)
+
+title ('Distance error')
 
 
 
 
 %% COMPARISON WITH PARTICLE FILTER
 
-
-
 %% Tracking by Particle Filter
 parameters.numberOfParticles = 1000;
 
 PR = generatePriorOfParticles(parameters);
 
+
 figure,hold on
+
 plot(PR.samples(1,:),PR.samples(2,:),'.r')
+
 plot( APhat(:,1) , APhat(:,2) , '^','MarkerSize',10,'MarkerEdgeColor',[147,0,0]./255,'MarkerFaceColor',[147,0,0]./255)
+
 xlabel('[m]'), ylabel('[m]');
+
 xlim([parameters.xmin parameters.xmax])
+
 ylim([parameters.ymin parameters.ymax])
+
 axis equal
+
 grid on
 
 
@@ -414,41 +470,63 @@ for time=1:parameters.simulationTime
     %evaluate likelihood
     for a = 1:parameters.numberOfAP 
         
-        likelihood = likelihood.*evaluateLikelihoodTOA2(parameters,APhat(a,:),PR,rho(1, time, a));
+        likelihood = likelihood.*evaluateLikelihoodTOA2(parameters,APhat(a,:),PR,rho(trajectory, time, a));
+    
     end
+    
     %normalization
     likelihood = likelihood./sum(likelihood);
+    
     PR.weights = likelihood';
     
     indexes = resamplingAlgorithm(PR.weights,parameters.numberOfParticles);
+    
     PR.samples = PR.samples(1:2,indexes);
+    
     uHat(time,:) = mean(PR.samples,2);
     
 %     figure,hold on
+
 %     plot(PR.samples(1,:),PR.samples(2,:),'.r')
-%     plot( AP(:,1) , AP(:,2) , '^','MarkerSize',10,'MarkerEdgeColor',[147,0,0]./255,'MarkerFaceColor',[147,0,0]./255)
+
+%     plot( APhat(:,1) , APhat(:,2) , '^','MarkerSize',10,'MarkerEdgeColor',[147,0,0]./255,'MarkerFaceColor',[147,0,0]./255)
+
 %     xlabel('[m]'), ylabel('[m]');
+
 %     xlim([parameters.xmin parameters.xmax])
+
 %     ylim([parameters.ymin parameters.ymax])
+
 %     axis equal
+
 %     grid on
 
     tot_PR(:,:,counter) = PR.samples;
+    
     counter = counter + 1;
 
     % propagation
-    PR = propagateParticles(parameters,PR);
+    PR = propagateParticles(parameters,PR, [mean(x(trajectory,:,3),2) mean(x(trajectory,:,4),2)], sigma_tot_velocity);
+    
     tot_PR(:,:,counter) = PR.samples;
+    
     counter = counter + 1;
 
 
 %     figure,hold on
+
 %     plot(PR.samples(1,:),PR.samples(2,:),'.r')
-%     plot( AP(:,1) , AP(:,2) , '^','MarkerSize',10,'MarkerEdgeColor',[147,0,0]./255,'MarkerFaceColor',[147,0,0]./255)
+
+%     plot( APhat(:,1) , APhat(:,2) , '^','MarkerSize',10,'MarkerEdgeColor',[147,0,0]./255,'MarkerFaceColor',[147,0,0]./255)
+
 %     xlabel('[m]'), ylabel('[m]');
+
 %     xlim([parameters.xmin parameters.xmax])
+
 %     ylim([parameters.ymin parameters.ymax])
+
 %     axis equal
+
 %     grid on
 
 
@@ -456,25 +534,38 @@ end
 
 %% plot UE trajectory
 figure,hold on
+
 plot( APhat(:,1) , APhat(:,2) , '^','MarkerSize',10,'MarkerEdgeColor',[147,0,0]./255,'MarkerFaceColor',[147,0,0]./255)
-plot( x(1,:,1) , x(1,:,2) , '^b')
-plot( uHat(:,1) , uHat(:,2) , '*r')
+
+plot( x(trajectory,:,1) , x(trajectory,:,2) , '-^b')
+
+plot( uHat(:,1) , uHat(:,2) , '-s')
+
 legend('AP','UE GT','UE est')
+
 xlabel('[m]'), ylabel('[m]');
+
 xlim([parameters.xmin parameters.xmax])
+
 ylim([parameters.ymin parameters.ymax])
+
 axis equal
+
 grid on
 
+
 %% distance error
-DeltaPosition = x(1,:,1:2)-uHat(:,1:2) ;
+DeltaPosition = squeeze(x(trajectory,:,1:2))-uHat(:,1:2) ;
+
 err = sqrt( sum ( DeltaPosition.^2,2));
+
 figure
+
 plot(err)
 
+title ('Distance error')
+
 %% plot PR evolution over time
-
-
 fig = figure(100); hold on
 
 for idx = 1:counter-1
@@ -482,24 +573,34 @@ for idx = 1:counter-1
     hold off
     
     if mod(idx,2)
+        
         plot (squeeze(tot_PR(1,:,idx)), squeeze(tot_PR(2,:,idx)), '.r')
+        
     else
+        
         plot (squeeze(tot_PR(1,:,idx)), squeeze(tot_PR(2,:,idx)), '.b')
+        
     end
     
     hold on
     
     
     plot( APhat(:,1) , APhat(:,2) , '^','MarkerSize',10,'MarkerEdgeColor',[147,0,0]./255,'MarkerFaceColor',[147,0,0]./255)
-    plot(  x(1,:,1) ,  x(1,:,2) , 'o','MarkerSize',10,'MarkerEdgeColor',[147,0,0]./255,'MarkerFaceColor',[147,0,0]./255)
+    
+    plot(  x(trajectory,1:round(idx/2),1) ,  x(trajectory,1:round(idx/2),2) , 'o','MarkerSize',10,'MarkerEdgeColor',[147,0,0]./255,'MarkerFaceColor',[147,0,0]./255)
+    
     plot(uHat(1:round(idx/2),1),uHat(1:round(idx/2),2),'-s','MarkerEdgeColor',[0, 0, 160]./255,'MarkerFaceColor',[0, 0, 160]./255)
+    
     legend('Particles','AP','UE','NLS')    
     
-%   legend('AP','UE','PF')
     xlabel('[m]'), ylabel('[m]');
-    xlim([parameters.xmin parameters.xmax])
-    ylim([parameters.ymin parameters.ymax])
-    axis equal
+    
+    xlim([min(x(trajectory,1,1),uHat(1,1))-100  max(x(trajectory,round(idx/2),1),uHat(round(idx/2),1))+100])
+    
+    ylim([min(x(trajectory,1,2),uHat(1,2))-100  max(x(trajectory,round(idx/2),2),uHat(round(idx/2),2))+100])
+    
+    %axis equal
+    
     grid on
     
     if mod(idx,2)
@@ -512,6 +613,7 @@ for idx = 1:counter-1
 
 end
 
-    
+
+
 
 

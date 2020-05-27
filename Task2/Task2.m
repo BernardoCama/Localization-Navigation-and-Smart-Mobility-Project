@@ -27,8 +27,8 @@ for i = 1:parameters.numberTrajectory
     
 end
 
-% mean over all trajectories of velocity vector
-v_mean = [mean(x(:,:,3),1); mean(x(:,:,4),1)];
+% extract velocity
+v = x(:,:,3:4);
 
 %% plot UE trajectories
 figure,hold on
@@ -56,40 +56,46 @@ for n=1:parameters.numberTrajectory
 end
 
 
-%% plot statistics
+%% plot statistics of first trajectory
 figure,hold on
 
-plot([0:parameters.samplingTime:parameters.simulationTime-1],v_mean(1,:));
+plot([0:parameters.samplingTime:parameters.simulationTime-1],v(1,:,1));
 
-plot([0:parameters.samplingTime:parameters.simulationTime-1],v_mean(2,:));
+plot([0:parameters.samplingTime:parameters.simulationTime-1],v(1,:,2));
 
 title('Velocity');xlabel('time');ylabel('m/s')
 
-acceleration = diff(v_mean(1:2,:),1,2);
+acceleration = squeeze(diff(v(:,:,1:2),1,2));
 
 figure,hold on
 
-plot([0:parameters.samplingTime:parameters.simulationTime-2],acceleration(1,:));
+plot([0:parameters.samplingTime:parameters.simulationTime-2],acceleration(1,:,2));
 
-plot([0:parameters.samplingTime:parameters.simulationTime-2],acceleration(2,:));
+plot([0:parameters.samplingTime:parameters.simulationTime-2],acceleration(1,:,2));
 
 title('Acceleration');xlabel('time');ylabel('m/s2')
 
 
-% since, as we can see in the graphs, the values of velocities and
-% accelerations are misleading after the 100_th sample (due to constraint
-% of delimited space), we calculate the statistics on samples up to 100.
 
-sigma_tot_velocity = std(v_mean(:,1:100),0,2)
-mean_tot_velocity = mean(v_mean(:,1:100),2)
+sigma_velocity = squeeze(std(v(1,:,:),0,2))
+mean_velocity = squeeze(mean(v(1,:,:),2))
 
-sigma_tot_acceleration = std(acceleration(:,1:100),0,2)
-mean_tot_acceleration = mean(acceleration(:,1:100),2)
+sigma_acceleration = squeeze(std(acceleration(1,:,:),0,2))
+mean_acceleration = squeeze(mean(acceleration(1,:,:),2))
+
+
+
+%% motion model statistics
+sigma_tot_velocity = mean(squeeze(std(v(:,:,:),0,2)),1)
+
+sigma_tot_acceleration = mean(squeeze(std(acceleration(:,:,:),0,2)),1)
+mean_tot_acceleration = mean(squeeze(mean(acceleration(:,:,:),2)),1)
 
 %{
+RIVEDERE
 we can clearly see that is Motion Model M2 because of:
 - zero sigma_tot_velocity
-- constant mean_tot_velocity (about v_x = 0.4, v_y = 0.6)
+- constant mean_tot_velocity (about v_x = 1.387, v_y = 5.635)
 - zero sigma_tot_acceleration
 - zero mean_tot_acceleration
 
@@ -105,7 +111,4 @@ and for M4:
 - zero sigma_tot_acceleration
 - mean_tot_acceleration != 0
 %}
-
-
-
 
