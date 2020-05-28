@@ -260,7 +260,7 @@ sigma_tot_acceleration = mean(squeeze(std(acceleration(:,:,:),0,2)),1)
 mean_tot_acceleration = mean(squeeze(mean(acceleration(:,:,:),2)),1)
 
 %{
-RIVEDERE
+RIVEDERE SBAGLIATO
 we can clearly see that is Motion Model M2 because of:
 - zero sigma_tot_velocity
 - constant mean_tot_velocity (about v_x = 1.387, v_y = 5.635)
@@ -315,7 +315,14 @@ trajectory = 1;
 % mean of Prior, first measurement
 parameters.NiterMax = 100;
 [u_0,numberOfPerformedIterations] = iterativeNLS(parameters,APhat,TYPE,R,squeeze(rho(trajectory, 1, :))');
-x_mean = [u_0(numberOfPerformedIterations,1),u_0(numberOfPerformedIterations, 2),mean(x(trajectory,:,3),2), mean(x(trajectory,:,4),2)]';
+
+% if we don't knew the velocity
+% x_mean = [u_0(numberOfPerformedIterations,1),u_0(numberOfPerformedIterations, 2),mean(x(trajectory,:,3),2), mean(x(trajectory,:,4),2)]';
+
+% if we knew the velocity
+x_mean = [u_0(numberOfPerformedIterations,1),u_0(numberOfPerformedIterations, 2),x(trajectory,1,3), x(trajectory,1,4)]';
+
+
 
 
 % covariance of Prior
@@ -333,7 +340,7 @@ F = [1 0 T 0; 0 1 0 T; 0 0 1 0; 0 0 0 1];
 
 L = [T 0; 0 T; 0 0; 0 0];
 
-Q = 0.* (L * L'); 
+Q = 0 .* (L * L'); % (CAMBIARE DA TASK2)
 
 
 %fig = figure(100); hold on
@@ -360,10 +367,20 @@ for time=1:parameters.simulationTime
     
 
     % Prediction
+    
+    % if we knew the velocity
+    x_mean(3) = x(trajectory,time,3);
+    x_mean(4) = x(trajectory,time,4);
+    
     x_mean = F * x_mean;
     
     P = F * P * F' + Q;
     
+    
+    % P aumenta sempre di piu quando ci si somma Q, 
+    % non diminusce molto quando ci si sottrae - G * H * P;
+    
+    % x_mean = F * x_mean; aumenta del giusto
     
     
 %     hold off
@@ -415,7 +432,7 @@ axis equal
 
 grid on
 
-pause()
+% pause()
 
 
 %% distance error
