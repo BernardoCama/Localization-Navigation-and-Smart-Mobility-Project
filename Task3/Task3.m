@@ -237,7 +237,7 @@ acceleration = squeeze(diff(v(:,:,1:2),1,2));
 
 figure,hold on
 
-plot([0:parameters.samplingTime:parameters.simulationTime-2],acceleration(1,:,2));
+plot([0:parameters.samplingTime:parameters.simulationTime-2],acceleration(1,:,1));
 
 plot([0:parameters.samplingTime:parameters.simulationTime-2],acceleration(1,:,2));
 
@@ -258,29 +258,6 @@ sigma_tot_velocity = mean(squeeze(std(v(:,:,:),0,2)),1)
 
 sigma_tot_acceleration = mean(squeeze(std(acceleration(:,:,:),0,2)),1)
 mean_tot_acceleration = mean(squeeze(mean(acceleration(:,:,:),2)),1)
-
-%{
-RIVEDERE SBAGLIATO
-we can clearly see that is Motion Model M2 because of:
-- zero sigma_tot_velocity
-- constant mean_tot_velocity (about v_x = 1.387, v_y = 5.635)
-- zero sigma_tot_acceleration
-- zero mean_tot_acceleration
-
-otherwise for M3 we would have obtained:
-- zero sigma_tot_velocity
-- zero mean_tot_velocity
-- zero sigma_tot_acceleration
-- zero mean_tot_acceleration
-
-and for M4:
-- zero sigma_tot_velocity
-- zero mean_tot_velocity
-- zero sigma_tot_acceleration
-- mean_tot_acceleration != 0
-%}
-
-
 
 
 
@@ -316,31 +293,27 @@ trajectory = 1;
 parameters.NiterMax = 100;
 [u_0,numberOfPerformedIterations] = iterativeNLS(parameters,APhat,TYPE,R,squeeze(rho(trajectory, 1, :))');
 
-% if we don't knew the velocity
-% x_mean = [u_0(numberOfPerformedIterations,1),u_0(numberOfPerformedIterations, 2),mean(x(trajectory,:,3),2), mean(x(trajectory,:,4),2)]';
 
 % if we knew the velocity
-x_mean = [u_0(numberOfPerformedIterations,1),u_0(numberOfPerformedIterations, 2),0, 0]';
-
-
+ x_mean = [u_0(numberOfPerformedIterations,1),u_0(numberOfPerformedIterations, 2),x(trajectory,1,3), x(trajectory,1,4)]';
 
 
 % covariance of Prior
 P = zeros(4,4);
 
-% motion model M3 x_t = F * x_t-1 + L * wa_t-1
-% ux_t = ux_t-1 * 1 + ux_t-1 * 0 + vx_t-1 * T + vy_t-1 * 0   +  wvx_t-1 * T^2/2 + wvx_t-1 * 0
-% uy_t = ux_t-1 * 0 + ux_t-1 * 1 + vx_t-1 * 0 + vy_t-1 * T   +  wvx_t-1 * 0 + wvx_t-1 * T^2/2
-% vx_t = ux_t-1 * 0 + ux_t-1 * 0 + vx_t-1 * 1 + vy_t-1 * 0   +  wvx_t-1 * T + wvx_t-1 * 0
-% vy_t = ux_t-1 * 0 + ux_t-1 * 0 + vx_t-1 * 0 + vy_t-1 * 1   +  wvx_t-1 * 0 + wvx_t-1 * T
+% motion model M2 x_t = F * x_t-1 + L * wv_t-1
+% ux_t = ux_t-1 * 1 + ux_t-1 * 0 + vx_t-1 * T + vy_t-1 * 0   +  wvx_t-1 * T + wvx_t-1 * 0
+% uy_t = ux_t-1 * 0 + ux_t-1 * 1 + vx_t-1 * 0 + vy_t-1 * T   +  wvx_t-1 * 0 + wvx_t-1 * T
+% vx_t = ux_t-1 * 0 + ux_t-1 * 0 + vx_t-1 * 1 + vy_t-1 * 0   +  wvx_t-1 * 0 + wvx_t-1 * 0
+% vy_t = ux_t-1 * 0 + ux_t-1 * 0 + vx_t-1 * 0 + vy_t-1 * 1   +  wvx_t-1 * 0 + wvx_t-1 * 0
 
 T = parameters.samplingTime;
 
 F = [1 0 T 0; 0 1 0 T; 0 0 1 0; 0 0 0 1];
 
-L = [T^2/2 0; 0 T^2/2; T 0; 0 T];
+L = [T 0; 0 T; 0 0; 0 0];
 
-Q = 0 .* (L * L'); % (CAMBIARE DA TASK2)
+Q = mean( sigma_tot_velocity,2) .* (L * L'); 
 
 
 %fig = figure(100); hold on
@@ -352,14 +325,14 @@ for time=1:parameters.simulationTime
     % Update mean and covariance
     [H] = createMatrixH(parameters,x_mean(1:2)',APhat,TYPE);
     
-    temp = ones(size(H, 1),1);
+    temp = zeros(size(H, 1),1);
     
     H = [H temp temp] ;
     
     % Kalman Gain
     G = P * H' * inv(H * P * H' + R);
     
-    x_mean = x_mean + G * ( squeeze(rho(trajectory, time, :)) - H * x_mean);
+    x_mean = x_mean + G * ( squeeze(rho(trajectory, time, :)) - sqrt(sum([x_mean(1:2)'-APhat].^2,2)));
     
     P = P - G * H * P;
     
@@ -369,20 +342,15 @@ for time=1:parameters.simulationTime
     % Prediction
     
     % if we knew the velocity
-    % x_mean(3) = x(trajectory,time,3);
-    % x_mean(4) = x(trajectory,time,4);
+    x_mean(3) = x(trajectory,time,3);
+    x_mean(4) = x(trajectory,time,4);
     
     x_mean = F * x_mean;
     
     P = F * P * F' + Q;
     
-    
-    % P aumenta sempre di piu quando ci si somma Q, 
-    % non diminusce molto quando ci si sottrae - G * H * P;
-    
-    % x_mean = F * x_mean; aumenta del giusto
-    
-    
+   
+
 %     hold off
 %     
 %     plot( x(trajectory,1:time,1) , x(trajectory,1:time,2) , '-o','MarkerSize',10,'MarkerEdgeColor',[147,0,0]./255,'MarkerFaceColor',[147,0,0]./255)
