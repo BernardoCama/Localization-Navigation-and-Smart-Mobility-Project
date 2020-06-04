@@ -277,7 +277,7 @@ rho = zeros (parameters.numberTrajectory,  parameters.simulationTime, 8);
 
 for i = 1:parameters.numberTrajectory
     
-    rho(i, : ,:) = rhoUEEAP{i};
+    rho(i, : ,:) = rhoUEEAP;
     
 end
 
@@ -291,7 +291,7 @@ trajectory = 1;
 
 % mean of Prior, first measurement
 parameters.NiterMax = 100;
-[u_0,numberOfPerformedIterations] = iterativeNLS(parameters,APhat,TYPE,R,squeeze(rho(trajectory, 1, :))');
+[u_0,numberOfPerformedIterations] = iterativeNLS(parameters,APhat,TYPE,R,squeeze(rho(trajectory, 1, :))');%inverti(?)
 
 
 % if we knew the velocity
@@ -316,7 +316,7 @@ L = [T 0; 0 T; 0 0; 0 0];
 Q = mean( sigma_tot_velocity,2) .* (L * L'); 
 
 
-%fig = figure(100); hold on
+% fig = figure(100); hold on
 
 % tracking the first trajectory
 for time=1:parameters.simulationTime
@@ -351,11 +351,7 @@ for time=1:parameters.simulationTime
     
    
 
-%     hold off
-%     
-%     plot( x(trajectory,1:time,1) , x(trajectory,1:time,2) , '-o','MarkerSize',10,'MarkerEdgeColor',[147,0,0]./255,'MarkerFaceColor',[147,0,0]./255)
-%     
-%     hold on
+%     hold off    
 %     
 %     plot(uHat(1:time,1),uHat(1:time,2),'-s','MarkerEdgeColor',[0, 0, 160]./255,'MarkerFaceColor',[0, 0, 160]./255)
 %     
@@ -363,17 +359,18 @@ for time=1:parameters.simulationTime
 %     
 %     plot( APhat(:,1) , APhat(:,2) , '^','MarkerSize',10,'MarkerEdgeColor',[147,0,0]./255,'MarkerFaceColor',[147,0,0]./255)
 % 
-%     legend('UE','uHat','AP')  
-
+%     legend('uHat','AP')  
+% 
 %     xlabel('[m]'), ylabel('[m]');
-
-%     xlim([min(x(trajectory,1,1),uHat(1,1))-100  max(x(trajectory,time,1),uHat(time,1))+100])
-
-%     ylim([min(x(trajectory,1,2),uHat(1,2))-100  max(x(trajectory,time,2),uHat(time,2))+100])
-
+% 
+%     xlim([min(uHat(1,1),uHat(time,1))-100  max(uHat(time,1),uHat(1,1))+100])
+% 
+%     ylim([min(uHat(1,2),uHat(time,2))-100  max(uHat(time,2),uHat(1,2))+100])
+% 
 %     grid on
-
+% 
 %     pause(1)
+
 
 
 end
@@ -384,11 +381,9 @@ figure,hold on
 
 plot( APhat(:,1) , APhat(:,2) , '^','MarkerSize',10,'MarkerEdgeColor',[147,0,0]./255,'MarkerFaceColor',[147,0,0]./255)
 
-plot( x(trajectory,:,1) , x(trajectory,:,2) , '-^b')
-
 plot( uHat(:,1) , uHat(:,2) , '-*r')
 
-legend('AP','UE','uHat') 
+legend('AP','uHat') 
 
 xlabel('[m]'), ylabel('[m]');
 
@@ -399,11 +394,136 @@ ylim([parameters.ymin parameters.ymax])
 axis equal
 
 grid on
-
+title('Tracked Trajectory task 4')
 % pause()
 
+%% Task 5
+load('Task5_rhoUEAP_GR31.mat')
+% %Plot Trajectory----> NLOS
+% hold on
+% plot(rhoUEEAP(:,1),'r*-');
+% plot(rhoUEEAP(:,3),'b*-');
+% plot(rhoUEEAP(:,4),'k*-');
+% plot(rhoUEEAP(:,2),'y*-');
+% plot(rhoUEEAP(:,5),'g*-');
+% plot(rhoUEEAP(:,6),'m*-');
+% plot(rhoUEEAP(:,7),'ro-');
+% plot(rhoUEEAP(:,8),'bo-');
+
+parameters.simulationTime = 690; %s
+parameters.samplingTime = 1; %s
+parameters.numberTrajectory = 1;
+
+rho = zeros (parameters.numberTrajectory,  parameters.simulationTime, 8);
+
+for i = 1:parameters.numberTrajectory
+    
+    rho(i, : ,:) = rhoUEEAP;
+    
+end
+
+%% tracking
+uHat = zeros(parameters.simulationTime,4);
+
+% which trajectory estimate
+trajectory = 1;
+
+% mean of Prior, first measurement
+parameters.NiterMax = 100;
+[u_0,numberOfPerformedIterations] = iterativeNLS(parameters,APhat,TYPE,R,squeeze(rho(trajectory, 1, :))');
+
+% if we knew the velocity
+ x_mean = [u_0(numberOfPerformedIterations,1),u_0(numberOfPerformedIterations, 2),50, 0]';
+
+
+% covariance of Prior
+P = zeros(4,4);
+
+T = parameters.samplingTime;
+
+F = [1 0 T 0; 0 1 0 T; 0 0 1 0; 0 0 0 1];
+
+L = [T 0; 0 T; 0 0; 0 0];
+
+Q = mean( sigma_tot_velocity,2) .* (L * L'); 
+
+
+% fig = figure(100); hold on
+
+% tracking the first trajectory
+for time=1:parameters.simulationTime
+    
+    
+    % Update mean and covariance
+    [H] = createMatrixH(parameters,x_mean(1:2)',APhat,TYPE);
+    
+    temp = zeros(size(H, 1),1);
+    
+    H = [H temp temp] ;
+    
+    % Kalman Gain
+    G = P * H' * inv(H * P * H' + R);
+    
+    x_mean = x_mean + G * ( squeeze(rho(trajectory, time, :)) - sqrt(sum([x_mean(1:2)'-APhat].^2,2)));
+    
+    P = P - G * H * P;
+    
+    uHat(time,:) = x_mean;
+    
+
+    % Prediction
+    
+    % if we knew the velocity
+    %x_mean(3) = x(trajectory,time,3);
+    %x_mean(4) = x(trajectory,time,4);
+    
+    x_mean = F * x_mean;
+    
+    P = F * P * F' + Q;
+    
+   
+
+%     hold off    
+%     
+%     plot(uHat(1:time,1),uHat(1:time,2),'-s','MarkerEdgeColor',[0, 0, 160]./255,'MarkerFaceColor',[0, 0, 160]./255)
+%     
+%     hold on
+%     
+%     plot( APhat(:,1) , APhat(:,2) , '^','MarkerSize',10,'MarkerEdgeColor',[147,0,0]./255,'MarkerFaceColor',[147,0,0]./255)
+% 
+%     legend('uHat','AP')  
+% 
+%     xlabel('[m]'), ylabel('[m]');
+% 
+%     xlim([min(uHat(1,1),uHat(time,1))-100  max(uHat(time,1),uHat(1,1))+100])
+% 
+%     ylim([min(uHat(1,2),uHat(time,2))-100  max(uHat(time,2),uHat(1,2))+100])
+% 
+%     grid on
+% 
+%     pause(1)
 
 
 
+end
 
 
+%% plot result
+figure,hold on
+
+plot( APhat(:,1) , APhat(:,2) , '^','MarkerSize',10,'MarkerEdgeColor',[147,0,0]./255,'MarkerFaceColor',[147,0,0]./255)
+
+plot( uHat(:,1) , uHat(:,2) , '-*r')
+
+legend('AP','uHat') 
+
+xlabel('[m]'), ylabel('[m]');
+
+xlim([parameters.xmin parameters.xmax])
+
+ylim([parameters.ymin parameters.ymax])
+title('Tracked Trajectory task 5')
+
+axis equal
+
+grid on
