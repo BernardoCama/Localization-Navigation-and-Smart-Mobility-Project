@@ -275,32 +275,13 @@ rho = zeros (parameters.numberTrajectory,  parameters.simulationTime, 8);
 for i = 1:parameters.numberTrajectory
     rho(i, : ,:) = rhoUEEAP;
 end
-rho(isnan(rho))=0;
-count=0;
-for i = 1:parameters.numberTrajectory
-    while rho(i,:,:)
-        
-    end
-    
-end
 
-%% load measurements Task 6
-load('Task6_rhoUEAP_GR31.mat');
-%% parameters
-parameters.simulationTime = 690; %s
-parameters.samplingTime = 1; %s
-parameters.numberTrajectory = 1;
-rho = zeros (parameters.numberTrajectory,  parameters.simulationTime, 8);
 
-for i = 1:parameters.numberTrajectory
-    rho(i, : ,:) = rhoUEEAP;
-end
-
+% #1
 % cycle to substitute NaN values
 rho_reshape=rhoUEEAP;
 irows=1;
 jump=0;
-
 for icolumn=1:8
     irows=1;
     while(irows<parameters.simulationTime)
@@ -308,7 +289,7 @@ for icolumn=1:8
             jump=jump+1;
         end
         if(jump~=0 )
-            rho_reshape(irows:irows+jump-1,icolumn)=linspace(rhoUEEAP(irows-1,icolumn),rhoUEEAP(irows+jump,icolumn),jump);% 
+            rho_reshape(irows:irows+jump-1,icolumn)=linspace(rhoUEEAP(irows-1,icolumn),rhoUEEAP(irows+jump,icolumn),jump);%
         end
         irows=irows+jump+1;
         jump=0;
@@ -316,9 +297,56 @@ for icolumn=1:8
 end
 
 rho_reshape(isnan(rho_reshape))=0;
+
+
+
+% #2
+rho_reshape2 = zeros (parameters.simulationTime, 8);
+TF = zeros (parameters.simulationTime, 8);
+for i = 1:parameters.numberOfAP
+    [rho_reshape2(:,i),TF(:,i)] = fillmissing(rhoUEEAP(:,i),'linear','SamplePoints',[1:parameters.simulationTime]);
+end
+
+
+% #3
+rho_reshape3 = zeros (parameters.simulationTime, 8);
+TF = zeros (parameters.simulationTime, 8);
+for i = 1:parameters.numberOfAP
+    [rho_reshape3(:,i),TF(:,i)] = fillmissing(rhoUEEAP(:,i),'spline','SamplePoints',[1:parameters.simulationTime]);
+end
+
+for ir=1:8
+    for ic=1:690
+           if(rho_reshape(ic,ir)==0)
+              rho_reshape(ic,ir)= rho_reshape3(ic,ir);
+           end
+    end
+end
+
 for i = 1:parameters.numberTrajectory
     rho(i, : ,:) = rho_reshape;
 end
+
+
+% #1
+hold on
+plot(rho_reshape(:,1),'b*-');
+plot(rhoUEEAP(:,1),'r*-');
+legend('blue default 1','red algorithm 2');
+
+% #2
+figure
+hold on
+plot(rho_reshape2(:,1),'b*-');
+plot(rhoUEEAP(:,1),'g*-');
+legend('blue default 1','green fill linear 2');
+
+% #3
+figure
+hold on
+plot(rho_reshape3(:,1),'m*-');
+plot(rhoUEEAP(:,1),'g*-');
+legend('blue default 1','magenta fill spline 2');
 
 %hold on
 % plot(rhocorrect(:,1),'r*-');

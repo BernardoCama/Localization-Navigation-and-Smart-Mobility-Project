@@ -299,9 +299,7 @@ for icolumn=1:8
 end
 
 rho_reshape(isnan(rho_reshape))=0;
-for i = 1:parameters.numberTrajectory
-    rho(i, : ,:) = rho_reshape;
-end
+
 
 
 % #2
@@ -317,6 +315,18 @@ rho_reshape3 = zeros (parameters.simulationTime, 8);
 TF = zeros (parameters.simulationTime, 8);
 for i = 1:parameters.numberOfAP
     [rho_reshape3(:,i),TF(:,i)] = fillmissing(rhoUEEAP(:,i),'spline','SamplePoints',[1:parameters.simulationTime]);
+end
+
+for ir=1:8
+    for ic=1:690
+           if(rho_reshape(ic,ir)==0)
+              rho_reshape(ic,ir)= rho_reshape3(ic,ir);
+           end
+    end
+end
+
+for i = 1:parameters.numberTrajectory
+    rho(i, : ,:) = rho_reshape;
 end
 
 
