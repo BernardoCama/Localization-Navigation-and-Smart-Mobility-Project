@@ -278,12 +278,11 @@ for i = 1:parameters.numberTrajectory
     rho(i, : ,:) = rhoUEEAP;
 end
 
-
-% #1
 % cycle to substitute NaN values
 rho_reshape=rhoUEEAP;
 irows=1;
 jump=0;
+
 for icolumn=1:8
     irows=1;
     while(irows<parameters.simulationTime)
@@ -305,41 +304,18 @@ end
 
 
 % #2
-rho_reshape2 = zeros (parameters.simulationTime, 8);
-TF = zeros (parameters.simulationTime, 8);
+zeros (parameters.numberTrajectory,  parameters.simulationTime, 8);
 for i = 1:parameters.numberOfAP
     [rho_reshape2(:,i),TF(:,i)] = fillmissing(rhoUEEAP(:,i),'linear','SamplePoints',[1:parameters.simulationTime]);
 end
 
 
-% #3
-rho_reshape3 = zeros (parameters.simulationTime, 8);
-TF = zeros (parameters.simulationTime, 8);
-for i = 1:parameters.numberOfAP
-    [rho_reshape3(:,i),TF(:,i)] = fillmissing(rhoUEEAP(:,i),'spline','SamplePoints',[1:parameters.simulationTime]);
-end
-
-
-% #1
 hold on
-plot(rho_reshape(:,1),'b*-');
-plot(rhoUEEAP(:,1),'r*-');
-legend('blue default 1','red algorithm 2');
+plot(rho_reshape(:,1),'r*-');
+plot(rhoUEEAP(:,1),'b*-');
 
-% #2
-figure
-hold on
-plot(rho_reshape2(:,1),'b*-');
-plot(rhoUEEAP(:,1),'g*-');
-legend('blue default 1','green fill linear 2');
-
-% #3
-figure
-hold on
-plot(rho_reshape3(:,1),'m*-');
-plot(rhoUEEAP(:,1),'g*-');
-legend('blue default 1','magenta fill spline 2');
-
+plot(rho_reshape2(:,1),'g*-');
+legend('red default 1','blue algorithm 2','green fill linear 3','black fill mean 4');
 
 % % plot(rhocorrect(:,3),'b*-');
 % % plot(rhocorrect(:,4),'k*-');
