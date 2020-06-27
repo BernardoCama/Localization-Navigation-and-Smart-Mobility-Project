@@ -386,13 +386,48 @@ end
 %% plot result
 figure,hold on
 
+    
+fixes = [uHat(:,1)-x(trajectory,:,1)', uHat(:,2)-x(trajectory,:,2)', sqrt( sum ( [uHat(:,1)-x(trajectory,:,1)', uHat(:,2)-x(trajectory,:,2)'].^2,2))];
+      
+sorted = sort(fixes(:,3),1,'descend');
+
+CEP95 = sorted(length(sorted) * 0.95)
+
+plot (fixes(:,1),fixes(:,2), 'r+' ,'DisplayName','Fixes'); 
+
+
+
+
+% DeltaPosition = squeeze(x(trajectory,:,1:2))-uHat(:,1:2) ;
+% 
+% parameters.sigmaTOA = mean(sqrt( sum ( DeltaPosition.^2,2)));
+% 
+% for i=1:parameters.simulationTime
+%     
+%     [H_(i,:,:)]  = createMatrixH(parameters,x(trajectory,i,1:2),APhat,TYPE);
+%     
+%     [ ellipsePoints(i,:,:) ] = calculateEllipse(parameters,H_(i),R,x(trajectory,i,1:2),APhat,TYPE,3);
+%     
+% end
+
+%x_ell = ellipsePoints(:,1,:);
+%y_ell = ellipsePoints(:,2,:);
+
+%plot( AP(:,1) , AP(:,2) , '^','MarkerSize',10,'MarkerEdgeColor',[147,0,0]./255,'MarkerFaceColor',[147,0,0]./255)
+%fill(x_ell(:,:)',y_ell(:,:)',[.9 .95 1],'edgecolor',[0, 0.4470, 0.7410],'linewidth',2);alpha(.5)
+
+
+%title([' ',num2str(TYPE),', $N_{AP}$ = ',num2str(parameters.numberOfAP),' , $\sigma $ = ',num2str(parameters.sigmaTOA),'m'],'Interpreter','Latex')
+
+
+
 plot( APhat(:,1) , APhat(:,2) , '^','MarkerSize',10,'MarkerEdgeColor',[147,0,0]./255,'MarkerFaceColor',[147,0,0]./255)
 
 plot( x(trajectory,:,1) , x(trajectory,:,2) , '-^b')
 
 plot( uHat(:,1) , uHat(:,2) , '-*r')
 
-legend('AP','UE','uHat') 
+legend('AP','UE','uHat','sigma = ',num2str(parameters.sigmaTOA),'m') 
 
 title ('Task 3 Result M2')
 
@@ -1094,10 +1129,17 @@ for ir=1:8
     end
 end
 
+
+
+
 for i = 1:parameters.numberTrajectory
     rho(i, : ,:) = rho_reshape;
 end
 
+rho2 = zeros (1,parameters.simulationTime, 8);
+for i = 1:parameters.numberTrajectory
+    rho2(i, : ,:) = rho_reshape3;
+end
 
 % #1
 hold on
@@ -1115,7 +1157,7 @@ legend('blue default 1','magenta fill spline 2');
 title('Cubic interpolation')
 
 
-%% tracking M3
+%% tracking M3 LINEAR INTERPOLATION
 uHat = zeros(parameters.simulationTime ,4);
 
 % which trajectory estimate
@@ -1216,7 +1258,7 @@ plot( uHat(:,1) , uHat(:,2) , '-*r')
 
 legend('AP','uHat')
 
-title ('Task 6 Result M3')
+title ('Task 6 Result M3 Linear Interpolation')
 
 xlabel('[m]'), ylabel('[m]');
 
@@ -1230,6 +1272,124 @@ grid on
 
 % pause()
 
+
+
+
+
+%% tracking M3 CUBIC INTERPOLATION
+uHat = zeros(parameters.simulationTime ,4);
+
+% which trajectory estimate
+trajectory = 1;
+
+% mean of Prior, first measurement
+parameters.NiterMax = 100;
+[u_0,numberOfPerformedIterations] = iterativeNLS_singolarity(parameters,APhat,TYPE,R,squeeze(rho2(trajectory, 1, :))');
+
+
+x_mean = [u_0(numberOfPerformedIterations,1),u_0(numberOfPerformedIterations, 2),50, 0]';
+
+
+% covariance of Prior
+P = zeros(4,4);
+
+% motion model M3 x_t = F * x_t-1 + L * wa_t-1
+% ux_t = ux_t-1 * 1 + ux_t-1 * 0 + vx_t-1 * T + vy_t-1 * 0   +  wvx_t-1 * T^2/2 + wvx_t-1 * 0
+% uy_t = ux_t-1 * 0 + ux_t-1 * 1 + vx_t-1 * 0 + vy_t-1 * T   +  wvx_t-1 * 0 + wvx_t-1 * T^2/2
+% vx_t = ux_t-1 * 0 + ux_t-1 * 0 + vx_t-1 * 1 + vy_t-1 * 0   +  wvx_t-1 * T + wvx_t-1 * 0
+% vy_t = ux_t-1 * 0 + ux_t-1 * 0 + vx_t-1 * 0 + vy_t-1 * 1   +  wvx_t-1 * 0 + wvx_t-1 * T
+
+T = parameters.samplingTime;
+
+F = [1 0 T 0; 0 1 0 T; 0 0 1 0; 0 0 0 1];
+
+L = [T^2/2 0; 0 T^2/2; T 0; 0 T];
+
+Q = mean( sigma_tot_acceleration ,2) .* (L * L');
+
+
+%fig = figure(100); hold on
+
+% tracking the first trajectory
+for time=1:parameters.simulationTime
+    
+    
+    % Update mean and covariance
+    [H] = createMatrixH(parameters,x_mean(1:2)', APhat ,TYPE);
+    
+    temp = zeros(size(H, 1),1);
+    
+    H = [H temp temp] ;
+    [V,D] = eig(H * P * H' + R);
+    if (D(1,1)<1e-4|D(2,2)<1e-4)
+        diagload=1;
+    else
+        diagload=0;
+    end
+    DL=(0.0001)*(diagload*eye(8));
+    
+    % Kalman Gain
+    G = P * H' * inv((H * P * H' + R)+diagload*DL);
+    
+    x_mean = x_mean + G * ( squeeze(rho2(trajectory, time, :)) - sqrt(sum([x_mean(1:2)'-APhat].^2,2)) );
+    
+    P = P - G * H * P;
+    
+    uHat(time,:) = x_mean;
+    
+    
+    % Prediction
+    x_mean = F * x_mean;
+    
+    P = F * P * F' + Q;
+    
+    
+    %     hold off
+    %
+    %     plot(uHat(1:time,1),uHat(1:time,2),'-s','MarkerEdgeColor',[0, 0, 160]./255,'MarkerFaceColor',[0, 0, 160]./255)
+    %
+    %     hold on
+    %
+    %     plot( APhat(:,1) , APhat(:,2) , '^','MarkerSize',10,'MarkerEdgeColor',[147,0,0]./255,'MarkerFaceColor',[147,0,0]./255)
+    %
+    %     legend('uHat','AP')
+    
+    %     xlabel('[m]'), ylabel('[m]');
+    
+    %     xlim([min(uHat(1,1),uHat(time,1))-100  max(uHat(time,1),uHat(1,1))+100])
+    
+    %     ylim([min(uHat(1,2),uHat(time,2))-100  max(uHat(time,2),uHat(1,2))+100])
+    
+    %     grid on
+    
+    %     pause(1)
+    
+    
+end
+
+
+%% plot result
+figure,hold on
+
+plot( APhat(:,1) , APhat(:,2) , '^','MarkerSize',10,'MarkerEdgeColor',[147,0,0]./255,'MarkerFaceColor',[147,0,0]./255)
+
+plot( uHat(:,1) , uHat(:,2) , '-*r')
+
+legend('AP','uHat')
+
+title ('Task 6 Result M3 Cubic Interpolation')
+
+xlabel('[m]'), ylabel('[m]');
+
+xlim([parameters.xmin parameters.xmax])
+
+ylim([parameters.ymin parameters.ymax])
+
+axis equal
+
+grid on
+
+% pause()
 
 
 

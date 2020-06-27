@@ -385,31 +385,35 @@ end
 
 %% plot result
 figure,hold on
-
-
-
-DeltaPosition = squeeze(x(trajectory,:,1:2))-uHat(:,1:2) ;
-
-parameters.sigmaTOA = mean(sqrt( sum ( DeltaPosition.^2,2)));
-
-for i=1:parameters.simulationTime
     
-    [H_(i,:,:)]  = createMatrixH(parameters,x(trajectory,i,1:2),APhat,TYPE);
-    
-    [ ellipsePoints(i,:,:) ] = calculateEllipse(parameters,H_(i),R,x(trajectory,i,1:2),APhat,TYPE,3);
-    
-end
+fixes = [uHat(:,1)-x(trajectory,:,1)', uHat(:,2)-x(trajectory,:,2)', sqrt( sum ( [uHat(:,1)-x(trajectory,:,1)', uHat(:,2)-x(trajectory,:,2)'].^2,2))];
+      
+sorted = sort(fixes(:,3),1,'ascend');
 
-x_ell = ellipsePoints(:,1,:);
-y_ell = ellipsePoints(:,2,:);
+CEP95 = sorted(length(sorted) * 0.95)
 
-%plot( AP(:,1) , AP(:,2) , '^','MarkerSize',10,'MarkerEdgeColor',[147,0,0]./255,'MarkerFaceColor',[147,0,0]./255)
-fill(x_ell(:,:)',y_ell(:,:)',[.9 .95 1],'edgecolor',[0, 0.4470, 0.7410],'linewidth',2);alpha(.5)
+axisTheta = 0:.01:2*pi;
+xunit = CEP95 * cos(axisTheta);
+yunit = CEP95 * sin(axisTheta);
+plot(xunit, yunit);
+
+[in,on] = inpolygon(fixes(:,1),fixes(:,2),xunit,yunit);
+
+plot(fixes(in,1),fixes(in,2),'r+' ,'DisplayName','IN Points'); % points inside
+plot(fixes(~in,1),fixes(~in,2),'bo','DisplayName','OUT Points'); % points outside
+
+legend('Ellipse','Fixes IN','Fixes OUT') 
+
+title (['M2 CEP95 = ',num2str(CEP95)])
+
+xlabel('[m]'), ylabel('[m]');
+
+axis equal
+
+grid on
 
 
-%title([' ',num2str(TYPE),', $N_{AP}$ = ',num2str(parameters.numberOfAP),' , $\sigma $ = ',num2str(parameters.sigmaTOA),'m'],'Interpreter','Latex')
-
-
+figure,hold on
 
 plot( APhat(:,1) , APhat(:,2) , '^','MarkerSize',10,'MarkerEdgeColor',[147,0,0]./255,'MarkerFaceColor',[147,0,0]./255)
 
@@ -417,7 +421,7 @@ plot( x(trajectory,:,1) , x(trajectory,:,2) , '-^b')
 
 plot( uHat(:,1) , uHat(:,2) , '-*r')
 
-legend('AP','UE','uHat','sigma = ',num2str(parameters.sigmaTOA),'m') 
+legend('AP','UE','uHat') 
 
 title ('Task 3 Result M2')
 
@@ -433,16 +437,6 @@ grid on
 
 % pause()
 
-
-% for i=1:20
-% UE = [(rand-0.5)*parameters.xmax,(rand-0.5)*parameters.ymax];
-% TYPE = 'TOA';
-% [ H ] = createMatrixH(parameters,UE,AP,TYPE);
-% parameters.sigmaTOA = randi(10);
-% [R] = BuildCovarianceMatrix(parameters,TYPE);
-% [ ellipsePoints ] = calculateEllipse(parameters,H,R,UE,AP,TYPE,3);
-% pause(2)
-% end
 
 %% distance error M2
 DeltaPosition = squeeze(x(trajectory,:,1:2))-uHat(:,1:2) ;
@@ -551,6 +545,35 @@ end
 
 
 %% plot result
+figure,hold on
+    
+fixes = [uHat(:,1)-x(trajectory,:,1)', uHat(:,2)-x(trajectory,:,2)', sqrt( sum ( [uHat(:,1)-x(trajectory,:,1)', uHat(:,2)-x(trajectory,:,2)'].^2,2))];
+      
+sorted = sort(fixes(:,3),1,'ascend');
+
+CEP95 = sorted(length(sorted) * 0.95)
+
+axisTheta = 0:.01:2*pi;
+xunit = CEP95 * cos(axisTheta);
+yunit = CEP95 * sin(axisTheta);
+plot(xunit, yunit);
+
+[in,on] = inpolygon(fixes(:,1),fixes(:,2),xunit,yunit);
+
+plot(fixes(in,1),fixes(in,2),'r+' ,'DisplayName','IN Points'); % points inside
+plot(fixes(~in,1),fixes(~in,2),'bo','DisplayName','OUT Points'); % points outside
+
+legend('Ellipse','Fixes IN','Fixes OUT') 
+
+title (['M3 CEP95 = ',num2str(CEP95)])
+
+xlabel('[m]'), ylabel('[m]');
+
+axis equal
+
+grid on
+
+
 figure,hold on
 
 plot( APhat(:,1) , APhat(:,2) , '^','MarkerSize',10,'MarkerEdgeColor',[147,0,0]./255,'MarkerFaceColor',[147,0,0]./255)
@@ -695,6 +718,35 @@ for time=1:parameters.simulationTime
 end
 
 %% plot UE trajectory
+figure,hold on
+    
+fixes = [uHat(:,1)-x(trajectory,:,1)', uHat(:,2)-x(trajectory,:,2)', sqrt( sum ( [uHat(:,1)-x(trajectory,:,1)', uHat(:,2)-x(trajectory,:,2)'].^2,2))];
+      
+sorted = sort(fixes(:,3),1,'ascend');
+
+CEP95 = sorted(length(sorted) * 0.95)
+
+axisTheta = 0:.01:2*pi;
+xunit = CEP95 * cos(axisTheta);
+yunit = CEP95 * sin(axisTheta);
+plot(xunit, yunit);
+
+[in,on] = inpolygon(fixes(:,1),fixes(:,2),xunit,yunit);
+
+plot(fixes(in,1),fixes(in,2),'r+' ,'DisplayName','IN Points'); % points inside
+plot(fixes(~in,1),fixes(~in,2),'bo','DisplayName','OUT Points'); % points outside
+
+legend('Ellipse','Fixes IN','Fixes OUT') 
+
+title (['M2 CEP95 = ',num2str(CEP95)])
+
+xlabel('[m]'), ylabel('[m]');
+
+axis equal
+
+grid on
+
+
 figure,hold on
 
 plot( APhat(:,1) , APhat(:,2) , '^','MarkerSize',10,'MarkerEdgeColor',[147,0,0]./255,'MarkerFaceColor',[147,0,0]./255)
