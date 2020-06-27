@@ -451,6 +451,8 @@ ylim([0 8])
 
 title ('Distance error M2')
 
+mean_error = mean(err)
+
 
 
 
@@ -612,8 +614,7 @@ ylim([0 8])
 
 title ('Distance error M3')
 
-
-
+mean_error = mean(err)
 
 
 
@@ -623,7 +624,14 @@ title ('Distance error M3')
 %% Tracking by Particle Filter
 parameters.numberOfParticles = 1000;
 
-PR = generatePriorOfParticles(parameters);
+
+parameters.NiterMax = 100;
+[u_0,numberOfPerformedIterations] = iterativeNLS(parameters,APhat,TYPE,R,squeeze(rho(trajectory, 1, :))');
+
+u_0 = [u_0(numberOfPerformedIterations,1),u_0(numberOfPerformedIterations, 2)]';
+
+
+PR = generatePriorOfParticles(parameters, u_0);
 
 figure,hold on
 
@@ -645,11 +653,13 @@ grid on
 %% tracking
 uHat = zeros(parameters.simulationTime,2);
 
+uHat(1,:) = u_0';
+
 counter = 1;
 
 tot_PR= zeros (2,parameters.numberOfParticles, parameters.simulationTime*2);
 
-for time=1:parameters.simulationTime
+for time=2:parameters.simulationTime
     likelihood = ones(parameters.numberOfParticles,1);
     
     %evaluate likelihood
@@ -780,6 +790,8 @@ figure
 plot(err)
 
 title ('Distance error PF')
+
+mean_error = mean(err)
 
 %% plot PR evolution over time
 fig = figure(100); hold on
